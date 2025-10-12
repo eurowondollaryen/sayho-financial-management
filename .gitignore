@@ -1,0 +1,43 @@
+# General environment
+.env
+.env.*
+!**/.env.example
+.venv/
+.python-version
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.coverage.*
+*.egg-info/
+
+# Database & local storage
+*.db
+*.db-journal
+*.sqlite3
+
+# Node & bundler output
+**/node_modules/
+**/dist/
+**/build/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# IDE & editor metadata
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
