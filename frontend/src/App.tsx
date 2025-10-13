@@ -9,7 +9,6 @@ import SignupPage from "./pages/Auth/SignupPage";
 import DashboardPage from "./pages/Dashboard/DashboardPage";
 import StatusPage from "./pages/Status/StatusPage";
 import GoalsPage from "./pages/Goals/GoalsPage";
-import TransactionsPage from "./pages/Transactions/TransactionsPage";
 import SettingsPage from "./pages/Settings/SettingsPage";
 import AppLayout from "./components/AppLayout";
 
@@ -39,7 +38,6 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/status" element={<StatusPage />} />
           <Route path="/goals" element={<GoalsPage />} />
-          <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

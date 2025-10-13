@@ -26,7 +26,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       { label: t("nav.dashboard"), path: "/dashboard" },
       { label: t("nav.status"), path: "/status" },
       { label: t("nav.goals"), path: "/goals" },
-      { label: t("nav.transactions"), path: "/transactions" },
       { label: t("nav.settings"), path: "/settings" }
     ],
     [t]

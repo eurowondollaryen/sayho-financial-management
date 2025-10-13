@@ -2,6 +2,7 @@ import { createContext, ReactNode, useContext, useEffect, useMemo, useState } fr
 import { fetchCurrentUser, login, signup, type User } from "../api/auth";
 import { registerUnauthorizedHandler } from "../api/interceptors";
 import { useTranslation } from "./LanguageProvider";
+import { useThemePreference } from "./ThemePreferenceProvider";
 
 interface AuthContextValue {
   user: User | null;
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
+  const { setMode } = useThemePreference();
 
   useEffect(() => {
     registerUnauthorizedHandler(() => {
@@ -84,6 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout
     };
   }, [user, loading]);
+
+  useEffect(() => {
+    if (user?.theme_preference === "dark" || user?.theme_preference === "light") {
+      setMode(user.theme_preference);
+    } else if (user) {
+      setMode("light");
+    }
+  }, [user, user?.theme_preference, setMode]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
