@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import Grid from "@mui/material/Grid";
@@ -6,7 +6,8 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
-import { useTheme } from "@mui/material/styles";
+import Box from "@mui/material/Box";
+import { alpha, useTheme } from "@mui/material/styles";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,7 +17,8 @@ import {
   Title,
   Tooltip,
   Filler,
-  Legend
+  Legend,
+  type ScriptableContext
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 
@@ -114,7 +116,12 @@ export default function DashboardPage() {
           {isSnapshotsLoading ? (
             <LinearProgress />
           ) : fundTrendData.length ? (
-            <FundTrendChart data={fundTrendData} />
+            <Stack gap={1}>
+              <FundTrendChart data={fundTrendData} />
+              <Typography variant="caption" color="text.secondary">
+                {t("dashboard.fund_trend_hint")}
+              </Typography>
+            </Stack>
           ) : (
             <Typography color="text.secondary">{t("dashboard.fund_trend_empty")}</Typography>
           )}
@@ -158,7 +165,34 @@ export default function DashboardPage() {
 
 function FundTrendChart({ data }: { data: { date: string; amount: number }[] }) {
   const theme = useTheme();
+  const AXIS_WIDTH = 68;
+  const [axisTicks, setAxisTicks] = useState<{ label: string; percent: number }[]>([]);
+  const axisTicksSignature = useRef<string>("");
   const labels = useMemo(() => data.map((point) => dayjs(point.date).format("YYYY-MM-DD")), [data]);
+  const formatCurrency = useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(undefined, { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(
+        value
+      ),
+    []
+  );
+  const createGradientBackground = useCallback(
+    (color: string) =>
+      (context: ScriptableContext<"line">) => {
+        const { chart } = context;
+        const { ctx, chartArea } = chart;
+        if (!chartArea) {
+          return color;
+        }
+        const gradient = ctx.createLinearGradient(chartArea.left, chartArea.bottom, chartArea.left, chartArea.top);
+        gradient.addColorStop(0, alpha(color, 0.05));
+        gradient.addColorStop(0.5, alpha(color, 0.2));
+        gradient.addColorStop(1, alpha(color, 0.5));
+        return gradient;
+      },
+    []
+  );
+
   const chartData = useMemo(
     () => ({
       labels,
@@ -167,19 +201,45 @@ function FundTrendChart({ data }: { data: { date: string; amount: number }[] }) 
           label: "",
           data: data.map((point) => point.amount),
           borderColor: theme.palette.primary.main,
-          backgroundColor: theme.palette.primary.light,
+          pointBorderColor: theme.palette.primary.main,
+          pointBackgroundColor: theme.palette.background.paper,
+          borderWidth: 2,
           tension: 0.3,
-          fill: {
-            target: "origin",
-            above: theme.palette.primary.light
-          },
           pointRadius: 3,
-          pointHoverRadius: 5
+          pointHoverRadius: 5,
+          fill: true,
+          backgroundColor: createGradientBackground(theme.palette.primary.main)
         }
       ]
     }),
-    [data, labels, theme.palette.primary.light, theme.palette.primary.main]
+    [createGradientBackground, data, labels, theme.palette.background.paper, theme.palette.primary.main]
   );
+  const axisTickPlugin = useMemo(
+    () => ({
+      id: "fund-trend-axis-updater",
+      afterLayout: (chart: ChartJS) => {
+        const scale = (chart.scales?.y as any);
+        if (!scale || !scale.ticks?.length) {
+          return;
+        }
+        const canvasHeight = chart.height || chart.chartArea?.bottom || 1;
+        const ticks = scale.ticks.map((tick: { label?: string; value?: number }, index: number) => {
+          const pixel = scale.getPixelForTick(index);
+          const percent = Math.min(1, Math.max(0, pixel / canvasHeight));
+          const numericValue = typeof tick.value === "number" ? tick.value : Number(tick.value ?? 0);
+          const rawLabel = typeof tick.label === "string" && tick.label !== "" ? tick.label : formatCurrency(numericValue);
+          return { label: rawLabel, percent };
+        });
+        const signature = ticks.map(({ label, percent }) => `${label}-${Math.round(percent * 1000)}`).join("|");
+        if (axisTicksSignature.current !== signature) {
+          axisTicksSignature.current = signature;
+          setAxisTicks(ticks);
+        }
+      }
+    }),
+    [formatCurrency]
+  );
+
 
   const chartOptions = useMemo(
     () =>
@@ -195,11 +255,7 @@ function FundTrendChart({ data }: { data: { date: string; amount: number }[] }) 
                 return dayjs(data[index].date).format("YYYY-MM-DD");
               },
               label(context: { parsed: { y: number } }) {
-                const value = context.parsed.y;
-                return new Intl.NumberFormat(undefined, {
-                  style: "currency",
-                  currency: "KRW"
-                }).format(value);
+                return formatCurrency(context.parsed.y);
               }
             }
           }
@@ -207,7 +263,10 @@ function FundTrendChart({ data }: { data: { date: string; amount: number }[] }) 
         scales: {
           x: {
             ticks: {
-              color: theme.palette.text.secondary
+              color: theme.palette.text.secondary,
+              maxRotation: 0,
+              minRotation: 0,
+              autoSkip: false
             },
             grid: {
               color: theme.palette.divider
@@ -215,29 +274,71 @@ function FundTrendChart({ data }: { data: { date: string; amount: number }[] }) 
           },
           y: {
             ticks: {
-              color: theme.palette.text.secondary,
+              display: false,
               callback(value: string | number) {
-                if (typeof value === "string") return value;
-                return new Intl.NumberFormat(undefined, {
-                  style: "currency",
-                  currency: "KRW",
-                  maximumFractionDigits: 0
-                }).format(value);
+                const numeric = typeof value === "number" ? value : Number(value);
+                return Number.isFinite(numeric) ? formatCurrency(numeric) : String(value);
               }
             },
             grid: {
-              color: theme.palette.divider
+              color: theme.palette.divider,
+              drawTicks: false,
+              drawBorder: false
             },
             beginAtZero: true
           }
+        },
+        layout: {
+          padding: { left: 12, right: 16, top: 8, bottom: 8 }
         }
       }) as const,
-    [data, theme.palette.divider, theme.palette.text.secondary]
+    [data, formatCurrency, theme.palette.divider, theme.palette.text.secondary]
   );
 
+  const containerMinWidth = useMemo(() => Math.max(data.length * 80, 640), [data.length]);
+
   return (
-    <Stack sx={{ position: "relative", height: 320 }}>
-      <Line data={chartData} options={chartOptions} />
-    </Stack>
+    <Box sx={{ position: "relative", height: 320 }}>
+      <Box
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: `${AXIS_WIDTH}px`,
+          pointerEvents: "none",
+          borderRight: `1px solid ${theme.palette.divider}`,
+          background: `linear-gradient(to right, ${theme.palette.background.paper} 70%, ${alpha(theme.palette.background.paper, 0)} )`,
+          zIndex: 1
+        }}
+      >
+        {axisTicks.map(({ label, percent }) => (
+          <Box
+            key={`${label}-${percent}`}
+            sx={{
+              position: "absolute",
+              right: theme.spacing(1),
+              top: `${percent * 100}%`,
+              transform: "translateY(-50%)",
+              color: theme.palette.text.secondary,
+              fontSize: theme.typography.caption.fontSize,
+              textAlign: "right"
+            }}
+          >
+            {label}
+          </Box>
+        ))}
+      </Box>
+      <Box sx={{ overflowX: "auto", height: "100%", pl: `${AXIS_WIDTH}px`, pb: 1 }}>
+        <Box sx={{ position: "relative", height: "100%", minWidth: `${containerMinWidth}px` }}>
+          <Line
+            data={chartData}
+            options={chartOptions}
+            plugins={[axisTickPlugin]}
+            style={{ width: "100%", height: "100%" }}
+          />
+        </Box>
+      </Box>
+    </Box>
   );
 }

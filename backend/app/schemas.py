@@ -114,6 +114,7 @@ class FundCategoryBase(BaseModel):
     asset_type: AssetCategoryKind
     name: str
     is_active: bool = True
+    is_liquid: bool = False
     note: Optional[str] = None
 
 
@@ -125,6 +126,7 @@ class FundCategoryUpdate(BaseModel):
     asset_type: Optional[AssetCategoryKind] = None
     name: Optional[str] = None
     is_active: Optional[bool] = None
+    is_liquid: Optional[bool] = None
     note: Optional[str] = None
 
 

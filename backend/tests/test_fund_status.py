@@ -1,5 +1,7 @@
 import pytest
 
+from app.utils.xlsx import build_workbook_from_rows
+
 
 @pytest.mark.asyncio
 async def test_fund_category_and_snapshot_flow(client):
@@ -24,6 +26,7 @@ async def test_fund_category_and_snapshot_flow(client):
         "asset_type": "real_estate",
         "name": "Apartment",
         "is_active": True,
+        "is_liquid": True,
         "note": "Seoul Gangnam",
     }
     create_category_resp = await client.post("/fund-categories/", json=category_payload, headers=headers)
@@ -35,12 +38,20 @@ async def test_fund_category_and_snapshot_flow(client):
     assert list_category_resp.status_code == 200
     categories = list_category_resp.json()
     assert any(cat["id"] == category_id for cat in categories)
+    assert categories[0]["is_liquid"] is True
 
     update_category_resp = await client.patch(
-        f"/fund-categories/{category_id}", json={"is_active": False}, headers=headers
+        f"/fund-categories/{category_id}", json={"is_active": False, "is_liquid": False}, headers=headers
     )
     assert update_category_resp.status_code == 200
     assert update_category_resp.json()["is_active"] is False
+    assert update_category_resp.json()["is_liquid"] is False
+
+    template_resp = await client.get("/fund-snapshots/template", headers=headers)
+    assert template_resp.status_code == 200
+    assert template_resp.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
     snapshot_payload = {
         "reference_date": "2025-02-01",
@@ -56,6 +67,28 @@ async def test_fund_category_and_snapshot_flow(client):
     assert list_snapshot_resp.status_code == 200
     snapshots = list_snapshot_resp.json()
     assert any(snap["id"] == snapshot_id for snap in snapshots)
+
+    workbook_bytes = build_workbook_from_rows(
+        [
+            ["기준일자", "자금구분", "금액"],
+            ["2025-03-01", "Apartment", "10000"],
+            ["2025-03-02", "", "20000"],
+        ]
+    )
+
+    files = {
+        "file": (
+            "snapshots.xlsx",
+            workbook_bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    }
+    import_resp = await client.post("/fund-snapshots/import", headers=headers, files=files)
+    assert import_resp.status_code == 201
+    assert len(import_resp.json()) == 2
+
+    refreshed_snapshots = (await client.get("/fund-snapshots/", headers=headers)).json()
+    assert len(refreshed_snapshots) >= 2
 
     update_snapshot_resp = await client.patch(
         f"/fund-snapshots/{snapshot_id}", json={"amount": "15000.00"}, headers=headers

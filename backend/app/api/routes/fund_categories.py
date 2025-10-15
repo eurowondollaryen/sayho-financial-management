@@ -35,6 +35,7 @@ async def create_fund_category(
         asset_type=models.AssetCategoryType(payload.asset_type.value),
         name=payload.name,
         is_active=payload.is_active,
+        is_liquid=payload.is_liquid,
         note=payload.note,
     )
     session.add(category)

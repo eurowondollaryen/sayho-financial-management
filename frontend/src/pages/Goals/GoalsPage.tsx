@@ -193,7 +193,7 @@ export default function GoalsPage() {
     <Stack gap={4}>
       <Typography variant="h4">{t("goals.title")}</Typography>
 
-      <Stack direction={{ xs: "column", lg: "row" }} spacing={3} alignItems="flex-start">
+      <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems={{ xs: "stretch", md: "flex-start" }}>
         <Stack flex={1} gap={3}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>

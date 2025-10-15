@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Boolean,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -173,6 +174,7 @@ class FundCategory(Base):
     asset_type: Mapped[AssetCategoryType] = mapped_column(SqlEnum(AssetCategoryType), nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_liquid: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default=text("0"))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
