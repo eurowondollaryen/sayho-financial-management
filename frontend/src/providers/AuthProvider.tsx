@@ -1,5 +1,8 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
+import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { fetchCurrentUser, login, signup, type User } from "../api/auth";
+import { registerTokenProvider } from "../api/client";
 import { registerUnauthorizedHandler } from "../api/interceptors";
 import { useTranslation } from "./LanguageProvider";
 import { useThemePreference } from "./ThemePreferenceProvider";
@@ -17,17 +20,26 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const tokenRef = useRef<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
   const { setMode } = useThemePreference();
+  const TOKEN_KEY = "access_token";
+
+  useEffect(() => {
+    registerTokenProvider(async () => tokenRef.current);
+    return () => {
+      registerTokenProvider(null);
+    };
+  }, []);
 
   useEffect(() => {
     registerUnauthorizedHandler(() => {
-      localStorage.removeItem("access_token");
+      tokenRef.current = null;
+      void AsyncStorage.removeItem(TOKEN_KEY);
       setUser(null);
-      window.alert(t("auth.login_required"));
-      window.location.href = "/login";
+      Alert.alert(t("auth.login_required"));
     });
 
     return () => {
@@ -36,23 +48,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [t]);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      setLoading(false);
-      return;
+    let canceled = false;
+
+    async function bootstrap() {
+      try {
+        const stored = await AsyncStorage.getItem(TOKEN_KEY);
+        if (!stored) {
+          if (!canceled) {
+            setLoading(false);
+          }
+          return;
+        }
+        tokenRef.current = stored;
+        const current = await fetchCurrentUser();
+        if (!canceled) {
+          setUser(current);
+        }
+      } catch {
+        tokenRef.current = null;
+        await AsyncStorage.removeItem(TOKEN_KEY);
+      } finally {
+        if (!canceled) {
+          setLoading(false);
+        }
+      }
     }
-    fetchCurrentUser()
-      .then((data) => setUser(data))
-      .catch(() => {
-        localStorage.removeItem("access_token");
-      })
-      .finally(() => setLoading(false));
+
+    bootstrap();
+
+    return () => {
+      canceled = true;
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(() => {
     async function loginWithCredentials(username: string, password: string) {
       const { access_token } = await login({ username, password });
-      localStorage.setItem("access_token", access_token);
+      tokenRef.current = access_token;
+      await AsyncStorage.setItem(TOKEN_KEY, access_token);
       const current = await fetchCurrentUser();
       setUser(current);
     }
@@ -68,7 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     function logout() {
-      localStorage.removeItem("access_token");
+      tokenRef.current = null;
+      void AsyncStorage.removeItem(TOKEN_KEY);
       setUser(null);
     }
 

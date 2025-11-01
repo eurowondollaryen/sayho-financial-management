@@ -1,88 +1,120 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import { CssBaseline, PaletteMode, ThemeProvider as MuiThemeProvider, createTheme } from "@mui/material";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DarkTheme as NavigationDarkTheme, DefaultTheme as NavigationDefaultTheme, Theme } from "@react-navigation/native";
+import {
+  Appearance,
+  type ColorSchemeName
+} from "react-native";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-type ThemeMode = "light" | "dark";
+export type ThemeMode = "light" | "dark";
+
+export interface ThemeColors {
+  background: string;
+  surface: string;
+  card: string;
+  primary: string;
+  secondary: string;
+  text: string;
+  muted: string;
+  border: string;
+  danger: string;
+}
 
 interface ThemePreferenceContextValue {
   mode: ThemeMode;
+  isDark: boolean;
+  colors: ThemeColors;
   setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
+  navigationTheme: Theme;
 }
 
 const STORAGE_KEY = "theme_mode";
 
+const lightColors: ThemeColors = {
+  background: "#f5f5f5",
+  surface: "#ffffff",
+  card: "#ffffff",
+  primary: "#1976d2",
+  secondary: "#00a86b",
+  text: "#1f2933",
+  muted: "#52606d",
+  border: "#d0d7de",
+  danger: "#d32f2f"
+};
+
+const darkColors: ThemeColors = {
+  background: "#101418",
+  surface: "#1a1f24",
+  card: "#20262d",
+  primary: "#90caf9",
+  secondary: "#66bb6a",
+  text: "#e0e6ed",
+  muted: "#9aa7b6",
+  border: "#2d3742",
+  danger: "#f87171"
+};
+
 const ThemePreferenceContext = createContext<ThemePreferenceContextValue | undefined>(undefined);
 
-function buildTheme(mode: ThemeMode) {
-  if (mode === "dark") {
-    return createTheme({
-      palette: {
-        mode: "dark" as PaletteMode,
-        primary: { main: "#90caf9" },
-        secondary: { main: "#66bb6a" },
-        background: {
-          default: "#101418",
-          paper: "#1a1f24"
-        },
-        text: {
-          primary: "#e0e6ed",
-          secondary: "#a7b4c2"
-        }
-      }
-    });
-  }
-
-  return createTheme({
-      palette: {
-        mode: "light" as PaletteMode,
-      primary: { main: "#1976d2" },
-      secondary: { main: "#00a86b" },
-      background: {
-        default: "#fafafa",
-        paper: "#ffffff"
-      },
-      text: {
-        primary: "#1f2933",
-        secondary: "#52606d"
-      }
+function buildNavigationTheme(mode: ThemeMode, colors: ThemeColors): Theme {
+  const base = mode === "dark" ? NavigationDarkTheme : NavigationDefaultTheme;
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      border: colors.border,
+      primary: colors.primary,
+      notification: colors.danger
     }
-  });
+  };
 }
 
 export function ThemePreferenceProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    return saved === "dark" ? "dark" : "light";
+    const scheme: ColorSchemeName = Appearance.getColorScheme();
+    return scheme === "dark" ? "dark" : "light";
   });
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, mode);
-  }, [mode]);
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((stored) => {
+        if (stored === "light" || stored === "dark") {
+          setModeState(stored);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   const setMode = useCallback((next: ThemeMode) => {
     setModeState(next);
+    void AsyncStorage.setItem(STORAGE_KEY, next);
   }, []);
 
-  const theme = useMemo(() => buildTheme(mode), [mode]);
+  const toggleMode = useCallback(() => {
+    setMode(mode === "dark" ? "light" : "dark");
+  }, [mode, setMode]);
+
+  const colors = useMemo(() => (mode === "dark" ? darkColors : lightColors), [mode]);
+
+  const navigationTheme = useMemo(() => buildNavigationTheme(mode, colors), [mode, colors]);
 
   const value = useMemo<ThemePreferenceContextValue>(
     () => ({
       mode,
-      setMode
+      isDark: mode === "dark",
+      colors,
+      setMode,
+      toggleMode,
+      navigationTheme
     }),
-    [mode, setMode]
+    [mode, colors, setMode, toggleMode, navigationTheme]
   );
 
-  return (
-    <ThemePreferenceContext.Provider value={value}>
-      <MuiThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-      </MuiThemeProvider>
-    </ThemePreferenceContext.Provider>
-  );
+  return <ThemePreferenceContext.Provider value={value}>{children}</ThemePreferenceContext.Provider>;
 }
 
 export function useThemePreference() {

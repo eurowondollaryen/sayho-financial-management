@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,
   ReactNode,
@@ -10,7 +11,7 @@ import {
 
 type Language = "ko" | "en";
 
-type TranslationKey =
+export type TranslationKey =
   | "app.title"
   | "app.logout"
   | "nav.dashboard"
@@ -47,6 +48,7 @@ type TranslationKey =
   | "dashboard.empty"
   | "dashboard.fund_trend_title"
   | "dashboard.fund_trend_empty"
+  | "dashboard.fund_trend_hint"
   | "dashboard.goal_progress_title"
   | "status.title"
   | "status.categories.title"
@@ -59,7 +61,11 @@ type TranslationKey =
   | "status.categories.type.savings"
   | "status.categories.name"
   | "status.categories.is_active"
+  | "status.categories.is_liquid"
+  | "status.categories.liquid"
+  | "status.categories.illiquid"
   | "status.categories.note"
+  | "status.categories.actions"
   | "status.categories.submit"
   | "status.categories.empty"
   | "status.categories.active"
@@ -77,6 +83,12 @@ type TranslationKey =
   | "status.snapshots.table.empty"
   | "status.snapshots.delete"
   | "status.snapshots.no_category"
+  | "status.snapshots.template_download"
+  | "status.snapshots.template_download_error"
+  | "status.snapshots.upload"
+  | "status.snapshots.upload_success"
+  | "status.snapshots.upload_error"
+  | "status.snapshots.upload_help"
   | "goals.title"
   | "goals.add"
   | "goals.form.error"
@@ -451,7 +463,6 @@ const translations: Translations = {
 interface LanguageContextValue {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: TranslationKey, options?: { fallback?: string }) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
@@ -460,30 +471,47 @@ const STORAGE_KEY = "app_language";
 const DEFAULT_LANGUAGE: Language = "ko";
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window === "undefined") {
-      return DEFAULT_LANGUAGE;
-    }
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "ko" || stored === "en") {
-      return stored;
-    }
-    return DEFAULT_LANGUAGE;
-  });
+  const [language, setLanguageState] = useState<Language>(DEFAULT_LANGUAGE);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, language);
-      document.documentElement.lang = language;
-    }
-  }, [language]);
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((stored) => {
+        if (stored === "ko" || stored === "en") {
+          setLanguageState(stored);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   const setLanguage = useCallback((next: Language) => {
     setLanguageState(next);
+    void AsyncStorage.setItem(STORAGE_KEY, next);
   }, []);
 
-  const t = useCallback<LanguageContextValue["t"]>(
-    (key, options) => {
+  const value = useMemo(
+    () => ({
+      language,
+      setLanguage
+    }),
+    [language, setLanguage]
+  );
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error("useLanguage must be used within LanguageProvider");
+  }
+  return context;
+}
+
+export function useTranslation() {
+  const { language } = useLanguage();
+
+  const translate = useCallback(
+    (key: TranslationKey, options?: { fallback?: string }) => {
       const current = translations[language]?.[key];
       if (current) {
         return current;
@@ -494,33 +522,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     [language]
   );
 
-  const value = useMemo(
+  return useMemo(
     () => ({
-      language,
-      setLanguage,
-      t
+      t: translate,
+      language
     }),
-    [language, setLanguage, t]
+    [translate, language]
   );
-
-  return (
-    <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
-  );
-}
-
-
-export function useLanguage() {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within LanguageProvider");
-  }
-  return { language: context.language, setLanguage: context.setLanguage };
-}
-
-export function useTranslation() {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useTranslation must be used within LanguageProvider");
-  }
-  return { t: context.t, language: context.language };
 }

@@ -31,6 +31,9 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
+# Expo local state
+.expo/
+
 # IDE & editor metadata
 .idea/
 .vscode/

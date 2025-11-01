@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Sayho Finance",
+    "slug": "sayho-financial-management",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-font"
+    ],
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}

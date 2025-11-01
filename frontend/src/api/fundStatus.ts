@@ -90,16 +90,3 @@ export async function deleteFundSnapshot(snapshotId: number) {
   await api.delete(`/fund-snapshots/${snapshotId}`);
 }
 
-export async function downloadFundSnapshotTemplate() {
-  const response = await api.get<Blob>("/fund-snapshots/template", { responseType: "blob" });
-  return response.data;
-}
-
-export async function uploadFundSnapshotsExcel(file: File) {
-  const formData = new FormData();
-  formData.append("file", file);
-  const { data } = await api.post<FundSnapshot[]>("/fund-snapshots/import", formData, {
-    headers: { "Content-Type": "multipart/form-data" }
-  });
-  return data;
-}
