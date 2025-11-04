@@ -68,7 +68,7 @@ export async function updateFundCategory(categoryId: number, payload: FundCatego
 }
 
 export async function deleteFundCategory(categoryId: number) {
-  await api.delete(`/fund-categories/${categoryId}`);
+  await api.delete(`/fund-categories/${categoryId}/`);
 }
 
 export async function fetchFundSnapshots() {
@@ -87,6 +87,6 @@ export async function updateFundSnapshot(snapshotId: number, payload: FundSnapsh
 }
 
 export async function deleteFundSnapshot(snapshotId: number) {
-  await api.delete(`/fund-snapshots/${snapshotId}`);
+  await api.delete(`/fund-snapshots/${snapshotId}/`);
 }
 

@@ -1,7 +1,18 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useMemo } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Text, View, Platform } from "react-native";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from "chart.js";
+import { Line } from "react-chartjs-2";
 
 import Card from "../components/Card";
 import ProgressBar from "../components/ProgressBar";
@@ -10,6 +21,8 @@ import { fetchFundSnapshots, type FundSnapshot } from "../api/fundStatus";
 import { fetchGoals, fetchTransactions, type Goal, type Transaction } from "../api/goals";
 import { useThemePreference } from "../providers/ThemePreferenceProvider";
 import { useTranslation } from "../providers/LanguageProvider";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 function calculateProgress(goalAmount: number, transactionsTotal: number) {
   if (!goalAmount) {
@@ -53,9 +66,8 @@ export default function DashboardScreen() {
 
   const transactionQueries = useQueries({
     queries: goals.map((goal) => ({
-      queryKey: ["transactions", goal.id],
-      queryFn: () => fetchTransactions(goal.id),
-      enabled: !!goal.id
+      queryKey: ["transactions", goal.id.toString()],
+      queryFn: () => fetchTransactions(goal.id)
     }))
   });
 
@@ -63,7 +75,8 @@ export default function DashboardScreen() {
 
   const progressList = useMemo(() => {
     return goals.map((goal, index) => {
-      const transactions = (transactionQueries[index]?.data ?? []) as Transaction[];
+      const queryResult = transactionQueries[index];
+      const transactions = (queryResult?.data ?? []) as Transaction[];
       const totalSaved = transactions.reduce((acc, txn) => {
         const amount = parseFloat(txn.amount);
         if (Number.isNaN(amount)) {
@@ -83,21 +96,71 @@ export default function DashboardScreen() {
     });
   }, [goals, transactionQueries]);
 
-  const snapshotSummary = useMemo(() => {
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: colors.muted
+          },
+          grid: {
+            color: colors.border
+          }
+        },
+        y: {
+          ticks: {
+            color: colors.muted
+          },
+          grid: {
+            color: colors.border
+          }
+        }
+      }
+    }),
+    [colors]
+  );
+
+  const fundTrendData = useMemo(() => {
     const snapshots = Array.isArray(snapshotData) ? (snapshotData as FundSnapshot[]) : [];
-    const sorted = [...snapshots].sort(
-      (a, b) => dayjs(b.reference_date).valueOf() - dayjs(a.reference_date).valueOf()
+
+    // Group snapshots by date and sum amounts
+    const dailyTotals = snapshots.reduce(
+      (acc, snapshot) => {
+        const date = dayjs(snapshot.reference_date).format("YYYY-MM-DD");
+        const amount = parseFloat(snapshot.amount);
+        if (!Number.isNaN(amount)) {
+          acc[date] = (acc[date] || 0) + amount;
+        }
+        return acc;
+      },
+      {} as Record<string, number>
     );
-    const latestTotal = snapshots.reduce((acc, snapshot) => {
-      const amount = parseFloat(snapshot.amount);
-      return Number.isNaN(amount) ? acc : acc + amount;
-    }, 0);
+
+    // Sort dates chronologically
+    const sortedDates = Object.keys(dailyTotals).sort((a, b) => dayjs(a).valueOf() - dayjs(b).valueOf());
+
+    const labels = sortedDates;
+    const data = sortedDates.map((date) => dailyTotals[date]);
 
     return {
-      latestTotal,
-      recent: sorted.slice(0, 5)
+      labels,
+      datasets: [
+        {
+          label: t("dashboard.fund_trend_title"),
+          data,
+          borderColor: colors.primary,
+          backgroundColor: `${colors.primary}80` // Add some transparency
+        }
+      ]
     };
-  }, [snapshotData]);
+  }, [snapshotData, t, colors]);
 
   return (
     <Screen>
@@ -108,26 +171,13 @@ export default function DashboardScreen() {
           <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{t("dashboard.fund_trend_title")}</Text>
           {isSnapshotsLoading ? (
             <ActivityIndicator color={colors.primary} />
-          ) : snapshotSummary.recent.length ? (
-            <View style={{ gap: 12 }}>
-              <Text style={{ color: colors.muted }}>
-                {t("dashboard.saved")}: {formatCurrency(snapshotSummary.latestTotal)}
-              </Text>
-              <View style={{ gap: 8 }}>
-              {snapshotSummary.recent.map((snapshot) => (
-                <View
-                  key={snapshot.id}
-                  style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
-                >
-                  <Text style={{ color: colors.text, fontWeight: "500" }}>
-                    {dayjs(snapshot.reference_date).format("YYYY-MM-DD")}
-                  </Text>
-                  <Text style={{ color: colors.muted }}>
-                    {formatCurrency(Number.isNaN(parseFloat(snapshot.amount)) ? 0 : parseFloat(snapshot.amount))}
-                  </Text>
-                </View>
-              ))}
-              </View>
+          ) : fundTrendData.labels.length ? (
+            <View style={{ height: 300, marginTop: 12 }}>
+              {Platform.OS === "web" ? (
+                <Line options={chartOptions} data={fundTrendData} />
+              ) : (
+                <Text style={{ color: colors.muted }}>{t("common.chart_not_supported")}</Text>
+              )}
             </View>
           ) : (
             <Text style={{ color: colors.muted }}>{t("dashboard.fund_trend_empty")}</Text>

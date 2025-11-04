@@ -1,6 +1,9 @@
-
 import { Picker, type PickerProps } from "@react-native-picker/picker";
-import { StyleSheet, Text, View } from "react-native";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import MuiSelect from "@mui/material/Select";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { useThemePreference } from "../providers/ThemePreferenceProvider";
 
@@ -13,9 +16,10 @@ type PickerFieldProps = {
   label: string;
   items: Item[];
   error?: string;
-} & PickerProps;
+  // This is a bit of a hack to make the props compatible
+} & (PickerProps & { onValueChange: (value: any) => void });
 
-export default function PickerField({
+function NativePickerField({
   label,
   items,
   error,
@@ -32,17 +36,15 @@ export default function PickerField({
       fontSize: 12
     },
     pickerContainer: {
+      height: 56,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: error ? colors.danger : colors.border,
       borderRadius: 10,
-      overflow: "hidden",
-      justifyContent: "center"
+      justifyContent: "center",
+      paddingHorizontal: 4
     },
     picker: {
-      color: colors.text,
-      // The picker has a default padding on android that we can't easily remove,
-      // so we use negative margin to make it look more like the text field.
-      marginVertical: -10
+      color: colors.text
     },
     errorText: {
       color: colors.danger,
@@ -63,4 +65,44 @@ export default function PickerField({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
+}
+
+function WebPickerField({
+  label,
+  items,
+  error,
+  selectedValue,
+  onValueChange,
+  ...pickerProps
+}: PickerFieldProps) {
+  return (
+    <FormControl fullWidth error={!!error}>
+      <InputLabel>{label}</InputLabel>
+      <MuiSelect
+        label={label}
+        value={selectedValue}
+        onChange={(e) => onValueChange(e.target.value)}
+        {...(pickerProps as any)}
+      >
+        {items.map((item) => (
+          <MenuItem key={item.value} value={item.value}>
+            {item.label}
+          </MenuItem>
+        ))}
+      </MuiSelect>
+      {error ? (
+        <Text style={{ color: "#d32f2f", fontSize: 12, marginLeft: 14, marginTop: 3 }}>
+          {error}
+        </Text>
+      ) : null}
+    </FormControl>
+  );
+}
+
+export default function PickerField(props: PickerFieldProps) {
+  if (Platform.OS === "web") {
+    return <WebPickerField {...props} />;
+  }
+
+  return <NativePickerField {...props} />;
 }

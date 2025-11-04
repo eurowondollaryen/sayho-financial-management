@@ -137,6 +137,10 @@ export default function StatusScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fund-categories"] });
       queryClient.invalidateQueries({ queryKey: ["fund-snapshots"] });
+    },
+    onError: (error) => {
+      console.error(error);
+      Alert.alert(t("common.error"), t("common.delete_failed"));
     }
   });
 
@@ -151,6 +155,10 @@ export default function StatusScreen() {
     mutationFn: deleteFundSnapshot,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fund-snapshots"] });
+    },
+    onError: (error) => {
+      console.error(error);
+      Alert.alert(t("common.error"), t("common.delete_failed"));
     }
   });
 
@@ -205,10 +213,10 @@ export default function StatusScreen() {
   };
 
   const handleDeleteCategory = (category: FundCategory) => {
-    Alert.alert(category.name, t("status.snapshots.delete"), [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("status.categories.delete_confirm_title"), category.name, [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: t("status.snapshots.delete"),
+        text: t("common.delete"),
         style: "destructive",
         onPress: () => deleteCategoryMutation.mutate(category.id)
       }
@@ -216,10 +224,10 @@ export default function StatusScreen() {
   };
 
   const handleDeleteSnapshot = (snapshotId: number) => {
-    Alert.alert(t("status.snapshots.delete"), t("status.snapshots.delete"), [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("status.snapshots.delete_confirm_title"), t("status.snapshots.delete_confirm_message"), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: t("status.snapshots.delete"),
+        text: t("common.delete"),
         style: "destructive",
         onPress: () => deleteSnapshotMutation.mutate(snapshotId)
       }
@@ -336,7 +344,7 @@ export default function StatusScreen() {
 
         <Card>
           <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>
-            {t("status.categories.title")}
+            {t("status.categories.list_title")}
           </Text>
           {isCategoriesFetching ? (
             <ActivityIndicator color={colors.primary} />
@@ -377,7 +385,7 @@ export default function StatusScreen() {
                       thumbColor="#fff"
                     />
                   </View>
-                  <Button title={t("status.snapshots.delete")} variant="text" onPress={() => handleDeleteCategory(category)} />
+                  <Button title={t("common.delete")} variant="text" onPress={() => handleDeleteCategory(category)} />
                 </View>
               ))}
             </View>
@@ -475,7 +483,7 @@ export default function StatusScreen() {
                     {t("status.snapshots.amount")}: {snapshot.amount}
                   </Text>
                   <Button
-                    title={t("status.snapshots.delete")}
+                    title={t("common.delete")}
                     variant="text"
                     onPress={() => handleDeleteSnapshot(snapshot.id)}
                   />
