@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useMemo } from "react";
-import { ActivityIndicator, Text, View, Platform } from "react-native";
+import { ActivityIndicator, Platform, ScrollView, Text, View } from "react-native";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,7 +10,9 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler,
+  type ScriptableContext
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 
@@ -22,7 +24,7 @@ import { fetchGoals, fetchTransactions, type Goal, type Transaction } from "../a
 import { useThemePreference } from "../providers/ThemePreferenceProvider";
 import { useTranslation } from "../providers/LanguageProvider";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 function calculateProgress(goalAmount: number, transactionsTotal: number) {
   if (!goalAmount) {
@@ -100,9 +102,23 @@ export default function DashboardScreen() {
     () => ({
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: "index",
+        intersect: false
+      },
       plugins: {
         legend: {
           display: false
+        }
+      },
+      elements: {
+        line: {
+          tension: 0.4
+        },
+        point: {
+          radius: 4,
+          hoverRadius: 6,
+          hitRadius: 12
         }
       },
       scales: {
@@ -130,37 +146,75 @@ export default function DashboardScreen() {
   const fundTrendData = useMemo(() => {
     const snapshots = Array.isArray(snapshotData) ? (snapshotData as FundSnapshot[]) : [];
 
-    // Group snapshots by date and sum amounts
-    const dailyTotals = snapshots.reduce(
+    const dailyAggregates = snapshots.reduce(
       (acc, snapshot) => {
         const date = dayjs(snapshot.reference_date).format("YYYY-MM-DD");
         const amount = parseFloat(snapshot.amount);
-        if (!Number.isNaN(amount)) {
-          acc[date] = (acc[date] || 0) + amount;
+        if (Number.isNaN(amount)) {
+          return acc;
+        }
+        if (!acc[date]) {
+          acc[date] = { total: 0, liquid: 0 };
+        }
+        acc[date].total += amount;
+        if (snapshot.category?.is_liquid) {
+          acc[date].liquid += amount;
         }
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, { total: number; liquid: number }>
     );
 
-    // Sort dates chronologically
-    const sortedDates = Object.keys(dailyTotals).sort((a, b) => dayjs(a).valueOf() - dayjs(b).valueOf());
-
+    const sortedDates = Object.keys(dailyAggregates).sort((a, b) => dayjs(a).valueOf() - dayjs(b).valueOf());
     const labels = sortedDates;
-    const data = sortedDates.map((date) => dailyTotals[date]);
+    const totalSeries = sortedDates.map((date) => dailyAggregates[date].total);
+    const liquidSeries = sortedDates.map((date) => dailyAggregates[date].liquid);
+
+    const buildGradient = (context: ScriptableContext<"line">, baseColor: string) => {
+      const { ctx, chartArea } = context.chart;
+      if (!chartArea) {
+        return baseColor;
+      }
+      const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+      gradient.addColorStop(0, `${baseColor}55`);
+      gradient.addColorStop(1, `${baseColor}00`);
+      return gradient;
+    };
 
     return {
       labels,
       datasets: [
         {
-          label: t("dashboard.fund_trend_title"),
-          data,
+          label: t("dashboard.fund_trend_total_label"),
+          data: totalSeries,
           borderColor: colors.primary,
-          backgroundColor: `${colors.primary}80` // Add some transparency
+          backgroundColor: (context: ScriptableContext<"line">) => buildGradient(context, colors.primary),
+          fill: "origin",
+          borderWidth: 3,
+          pointBackgroundColor: colors.background,
+          pointBorderColor: colors.primary,
+          pointHoverBackgroundColor: colors.primary
+        },
+        {
+          label: t("dashboard.fund_trend_liquid_label"),
+          data: liquidSeries,
+          borderColor: colors.secondary,
+          backgroundColor: (context: ScriptableContext<"line">) => buildGradient(context, colors.secondary),
+          fill: "origin",
+          borderDash: [6, 6],
+          borderWidth: 2,
+          pointBackgroundColor: colors.background,
+          pointBorderColor: colors.secondary,
+          pointHoverBackgroundColor: colors.secondary
         }
       ]
     };
   }, [snapshotData, t, colors]);
+
+  const chartWidth = useMemo(
+    () => Math.max(fundTrendData.labels.length * 80, 600),
+    [fundTrendData.labels.length]
+  );
 
   return (
     <Screen>
@@ -174,7 +228,15 @@ export default function DashboardScreen() {
           ) : fundTrendData.labels.length ? (
             <View style={{ height: 300, marginTop: 12 }}>
               {Platform.OS === "web" ? (
-                <Line options={chartOptions} data={fundTrendData} />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator
+                  contentContainerStyle={{ paddingBottom: 8 }}
+                >
+                  <View style={{ height: 280, width: chartWidth + 24, paddingRight: 24 }}>
+                    <Line options={chartOptions} data={fundTrendData} />
+                  </View>
+                </ScrollView>
               ) : (
                 <Text style={{ color: colors.muted }}>{t("common.chart_not_supported")}</Text>
               )}

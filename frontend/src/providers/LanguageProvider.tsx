@@ -49,6 +49,8 @@ export type TranslationKey =
   | "dashboard.fund_trend_title"
   | "dashboard.fund_trend_empty"
   | "dashboard.fund_trend_hint"
+  | "dashboard.fund_trend_total_label"
+  | "dashboard.fund_trend_liquid_label"
   | "dashboard.goal_progress_title"
   | "status.title"
   | "status.categories.title"
@@ -70,6 +72,7 @@ export type TranslationKey =
   | "status.categories.empty"
   | "status.categories.active"
   | "status.categories.inactive"
+  | "status.categories.list_title"
   | "status.snapshots.title"
   | "status.snapshots.add"
   | "status.snapshots.date"
@@ -151,6 +154,8 @@ export type TranslationKey =
   | "common.no_goals"
   | "common.loading"
   | "common.optional"
+  | "common.delete"
+  | "common.chart_not_supported"
   | "validation.email"
   | "validation.password_min"
   | "validation.name_min"
@@ -200,6 +205,8 @@ const translations: Translations = {
     "dashboard.fund_trend_title": "자금 추이",
     "dashboard.fund_trend_empty": "등록된 자금 현황이 없습니다.",
     "dashboard.fund_trend_hint": "그래프를 좌우로 스크롤하여 더 많은 시점을 확인하세요.",
+    "dashboard.fund_trend_total_label": "시점별 전체 자금 합계",
+    "dashboard.fund_trend_liquid_label": "시점별 유동성 자금 합계",
     "dashboard.goal_progress_title": "목표 달성 현황",
     "status.title": "현황",
     "status.categories.title": "자금구분 관리",
@@ -221,6 +228,7 @@ const translations: Translations = {
     "status.categories.empty": "등록된 자금구분이 없습니다.",
     "status.categories.active": "사용",
     "status.categories.inactive": "미사용",
+    "status.categories.list_title": "자금구분 목록",
     "status.snapshots.title": "시점별 현황",
     "status.snapshots.add": "현황 등록",
     "status.snapshots.date": "기준일자",
@@ -302,6 +310,8 @@ const translations: Translations = {
     "common.no_goals": "등록된 목표가 없습니다.",
     "common.loading": "불러오는 중...",
     "common.optional": "선택 항목",
+    "common.delete": "삭제",
+    "common.chart_not_supported": "이 플랫폼에서는 그래프를 지원하지 않습니다.",
     "validation.email": "유효한 이메일을 입력하세요.",
     "validation.password_min": "비밀번호는 최소 8자 이상이어야 합니다.",
     "validation.name_min": "이름은 최소 2자 이상이어야 합니다.",
@@ -348,6 +358,8 @@ const translations: Translations = {
     "dashboard.fund_trend_title": "Fund Trend",
     "dashboard.fund_trend_empty": "No fund snapshots recorded yet.",
     "dashboard.fund_trend_hint": "Scroll horizontally to explore more dates.",
+    "dashboard.fund_trend_total_label": "Total funds per snapshot",
+    "dashboard.fund_trend_liquid_label": "Liquid funds per snapshot",
     "dashboard.goal_progress_title": "Goal Progress",
     "status.title": "Status",
     "status.categories.title": "Fund Categories",
@@ -369,6 +381,7 @@ const translations: Translations = {
     "status.categories.empty": "No categories yet.",
     "status.categories.active": "Active",
     "status.categories.inactive": "Inactive",
+    "status.categories.list_title": "Category List",
     "status.snapshots.title": "Snapshots",
     "status.snapshots.add": "Add snapshot",
     "status.snapshots.date": "Reference date",
@@ -450,6 +463,8 @@ const translations: Translations = {
     "common.no_goals": "No goals available.",
     "common.loading": "Loading...",
     "common.optional": "Optional",
+    "common.delete": "Delete",
+    "common.chart_not_supported": "Charts are not available on this platform.",
     "validation.email": "Enter a valid email address.",
     "validation.password_min": "Password must be at least 8 characters.",
     "validation.name_min": "Name must be at least 2 characters.",
